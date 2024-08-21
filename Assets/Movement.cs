@@ -8,6 +8,7 @@ public class Movement : MonoBehaviour
     [Header("Speed Controls")]
     public float moveSpeed;
     public float MoveMult;
+    public float Stamina;
 
     [Header("Jump Controls")]
     public float jumpForce;
@@ -20,9 +21,6 @@ public class Movement : MonoBehaviour
     public float playerHeight;
     public LayerMask Ground;
     bool grounded;
-
-    float horizontalInput;
-    float verticalInput;
 
     Vector3 moveDir;
 
@@ -39,10 +37,6 @@ public class Movement : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        //Gathering of Inputs
-        horizontalInput = Input.GetAxis("Horizontal");
-        verticalInput = Input.GetAxis("Vertical");
-
         //Ground Check and Drag applied if so
         grounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.2f, Ground);
         if (grounded)
@@ -58,14 +52,13 @@ public class Movement : MonoBehaviour
 
             Invoke(nameof(ResetJump), jumpCooldown);
         }
-        if(Input.GetKeyUp(KeyCode.Space))
-            rb.velocity = new(rb.velocity.x, 1.5f, rb.velocity.z);
-
-        if (Input.GetKeyUp(KeyCode.LeftShift) || Input.GetKeyUp(KeyCode.LeftControl))
+        if(Input.GetKeyUp(KeyCode.Space) && rb.velocity.y > 0 && !readyToJump)
+            rb.velocity = new(rb.velocity.x, rb.velocity.y/4, rb.velocity.z);
+        if (Input.GetKeyUp(KeyCode.LeftShift) && MoveMult == 2 || Input.GetKeyUp(KeyCode.LeftControl) && MoveMult != 2)
             MoveMult = 1;
-        if (Input.GetKeyDown(KeyCode.LeftShift) && MoveMult == 1)
+        if (Input.GetKey(KeyCode.LeftShift) && MoveMult == 1 && Stamina > 15f)
             MoveMult *= 2;
-        if (Input.GetKeyDown(KeyCode.LeftControl) && MoveMult == 1)
+        if (Input.GetKey(KeyCode.LeftControl) && MoveMult == 1)
             MoveMult /= 3;
 
         //Caps the players speed if they exceed it
@@ -76,10 +69,23 @@ public class Movement : MonoBehaviour
             Vector3 limitedVel = MoveMult * moveSpeed * flatVel.normalized;
             rb.velocity = new(limitedVel.x, rb.velocity.y, limitedVel.z);
         }
+
+        if(MoveMult > 1)
+        {
+            Stamina -= Time.deltaTime;
+            if (Stamina <= 0)
+                MoveMult = 1;
+        }
+        if (Stamina < 25 && MoveMult < 2)
+        {
+            Stamina += Time.deltaTime;
+            if(Stamina > 25)
+                Stamina = 25;
+        }
     }
     private void FixedUpdate()
     {
-        moveDir = orientation.forward * verticalInput + orientation.right * horizontalInput;
+        moveDir = orientation.forward * Input.GetAxis("Vertical") + orientation.right * Input.GetAxis("Horizontal");
 
         if (grounded)
             rb.AddForce(10f * MoveMult * moveSpeed * moveDir.normalized, ForceMode.Force);
