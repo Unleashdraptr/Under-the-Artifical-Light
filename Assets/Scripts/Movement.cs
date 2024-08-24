@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UIElements;
 
 public class Movement : MonoBehaviour
@@ -30,10 +31,16 @@ public class Movement : MonoBehaviour
     bool grounded;
 
     Vector3 moveDir;
+    Vector3 lastMoveDir;
+    int FrameCount;
+    Vector3 MoveDirections;
+    Vector3 PrevMoveDirections;
 
     Rigidbody rb;
     public Transform orientation;
+    public CameraControls TurnLock;
     RaycastHit wallCheckHit;
+
 
     // Start is called before the first frame update
     void Start()
@@ -41,6 +48,7 @@ public class Movement : MonoBehaviour
         readyToJump = true;
         rb = GetComponent<Rigidbody>();   
         rb.freezeRotation = true;
+        TurnLock = GameObject.Find("Camera").GetComponent<CameraControls>();
     }
 
     // Update is called once per frame
@@ -107,7 +115,9 @@ public class Movement : MonoBehaviour
     private void FixedUpdate()
     {
         moveDir = orientation.forward * Input.GetAxis("Vertical") + orientation.right * Input.GetAxis("Horizontal");
-
+        moveDir = moveDir.normalized;
+        MoveDirections = new(Mathf.Round(Input.GetAxis("Vertical")), 0, Mathf.Round(Input.GetAxis("Horizontal")));
+        Vector3 moveForce = new();
         rb.useGravity = !OnSlope();
         if (OnSlope() && !exitingSlope)
         {
@@ -122,34 +132,64 @@ public class Movement : MonoBehaviour
             else
                 MoveMult = 1;
             if (rb.velocity.y < 0)
-                rb.AddForce(20f * MoveMult * moveSpeed * Vector3.ProjectOnPlane(moveDir, slopeHit.normal).normalized, ForceMode.Force);
+                moveForce = (20f * MoveMult * moveSpeed * Vector3.ProjectOnPlane(moveDir, slopeHit.normal).normalized);
             if (rb.velocity.y > 0)
             {
-                rb.AddForce(20f * MoveMult * moveSpeed * Vector3.ProjectOnPlane(moveDir, -slopeHit.normal).normalized, ForceMode.Force);
-                rb.AddForce(Vector3.down * 120f, ForceMode.Force);
+                moveForce = 20f * MoveMult * moveSpeed * Vector3.ProjectOnPlane(moveDir, -slopeHit.normal).normalized;
+                moveForce += Vector3.down * 120f;
             }
         }
         else if (grounded)
         {
-            rb.AddForce(10f * MoveMult * moveSpeed * moveDir.normalized, ForceMode.Force);
+            moveForce = 10f * MoveMult * moveSpeed * moveDir;
             MoveMult = 1;
         }
         else if (!grounded)
         {
-            rb.AddForce(10f * airMultiplier * MoveMult * moveSpeed * moveDir.normalized, ForceMode.Force);
+            moveForce = 10f * airMultiplier * MoveMult * moveSpeed * moveDir;
             MoveMult = 1;
         }
+
+
+        if ((Input.GetAxis("Vertical") == 0 || Input.GetAxis("Horizontal") == 0) && Input.GetAxis("Mouse X") == 0)
+        {
+            if (moveDir.z < 0)
+                moveDir.z *= -1;
+            if (moveDir.x < 0)
+                moveDir.x *= -1;
+            if ((MoveDirections.x != PrevMoveDirections.x && lastMoveDir.x - moveDir.x <= 0.15f) || (MoveDirections.z != PrevMoveDirections.z && lastMoveDir.z - moveDir.z <= 0.15f))
+            {
+                TurnLock.canTurn = false;
+                moveForce.x *= 0.25f;
+                moveForce.z *= 0.25f;
+            }
+        }
+        rb.AddForce(moveForce, ForceMode.Force);
+
+        //If hitting a steep Slope
         if (Physics.Raycast(orientation.position, orientation.forward, out wallCheckHit, 3.5f))
         {
             if (rb.velocity.y > 0 && Vector3.Angle(Vector3.up, wallCheckHit.transform.position) > 87 && wallCheckHit.transform.gameObject.layer == 7)
             {
                 float drag = (-1f - ((Vector3.Angle(Vector3.up, wallCheckHit.transform.position) - 88) * 3f));
-                Debug.Log(drag);
                 if (drag < -2f)
                     drag -= 0.75f;
                 rb.velocity = new(rb.velocity.x, drag, rb.velocity.z);
             }
         }
+        if (FrameCount == 15)
+        {
+            lastMoveDir = moveDir;
+            PrevMoveDirections = MoveDirections;
+            if (lastMoveDir.z < 0)
+                lastMoveDir.z *= -1;
+            if (lastMoveDir.x < 0)
+                lastMoveDir.x *= -1;
+            FrameCount = 0;
+            FrameCount++;
+        }
+        else
+            FrameCount++;
     }
 
     void Jump()
