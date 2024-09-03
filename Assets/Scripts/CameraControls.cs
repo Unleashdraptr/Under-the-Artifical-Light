@@ -18,15 +18,8 @@ public class CameraControls : MonoBehaviour
         canTurn = true;
     }
     // Update is called once per frame
-    void Update()
+    void LateUpdate()
     {
-        if (!canTurn)
-            timer -= Time.deltaTime;
-        if (timer <= 0 && !canTurn)
-        {
-            canTurn = !canTurn;
-            timer = 0.25f;
-        }
         if (canTurn)
         {
             Vector3 RotDir = player.position - new Vector3(transform.position.x, player.position.y, transform.position.z);
