@@ -33,5 +33,11 @@ public class CameraControls : MonoBehaviour
             if (MoveDir != Vector3.zero)
                 playerObj.forward = Vector3.Slerp(playerObj.forward, MoveDir.normalized, Time.deltaTime * rotationSpeed);
         }
+        if (Input.GetAxis("Vertical") == 0 && Input.GetAxis("Horizontal") == 0 && player.GetComponent<Movement>().MoveState == Movement.AnimControls.IDLE)
+        {
+            rotationSpeed = 40;
+        }
+        else
+            rotationSpeed = 8;
     }
 }

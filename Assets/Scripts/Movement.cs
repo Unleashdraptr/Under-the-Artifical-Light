@@ -36,7 +36,7 @@ public class Movement : MonoBehaviour
     Vector3 moveDir;
     Vector3 lastMoveDir;
     int FrameCount;
-    Vector3 MoveDirections;
+    public Vector3 MoveDirections;
     Vector3 PrevMoveDirections;
 
     Rigidbody rb;
@@ -62,8 +62,14 @@ public class Movement : MonoBehaviour
     void Update()
     {
         //Ground Check and Drag applied if so
-        grounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.25f, Ground);
-        if (grounded)
+        grounded = Physics.Raycast(transform.position, Vector3.down, playerHeight * 0.5f + 0.05f, Ground);
+        if (grounded && Input.GetAxis("Vertical") == 0 && Input.GetAxis("Horizontal") == 0)
+        {
+            rb.drag = groundDrag * 5;
+            jumpStopping = false;
+            MoveCalcs();
+        }
+        else if (grounded)
         {
             rb.drag = groundDrag;
             jumpStopping = false;
@@ -177,10 +183,13 @@ public class Movement : MonoBehaviour
     }
 
 
-
-
-
     private void FixedUpdate()
+    {
+        MoveCalcs();
+    }
+
+
+    private void MoveCalcs()
     {
         moveDir = orientation.forward * Input.GetAxis("Vertical") + orientation.right * Input.GetAxis("Horizontal");
         moveDir = moveDir.normalized;
@@ -216,7 +225,7 @@ public class Movement : MonoBehaviour
             moveForce = 10f * airMultiplier * MoveMult * moveSpeed * moveDir;
             MoveMult = 1;
         }
-        if(MoveState == AnimControls.SKIDDING)
+        if(MoveState == AnimControls.SKIDDING || (Input.GetAxis("Vertical") == 0 && Input.GetAxis("Horizontal") == 0))
         {
             moveForce.x *= 0.25f;
             moveForce.z *= 0.25f;
@@ -239,12 +248,21 @@ public class Movement : MonoBehaviour
 
     void Jump()
     {
+        rb.drag = 0;
         MoveMult = 1;
         readyToJump = false;
         exitingSlope = true;
         rb.velocity = new(rb.velocity.x, 0f, rb.velocity.z);
-        MoveState = AnimControls.JUMPING;
         rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
+        if(MoveState == AnimControls.SPRINTING)
+        {
+            rb.AddForce(orientation.forward * jumpForce, ForceMode.Impulse);
+        }
+        else if (MoveState == AnimControls.CROUCHING)
+        {
+            rb.AddForce(transform.up * (jumpForce * 0.25f), ForceMode.Impulse);
+        }
+        MoveState = AnimControls.JUMPING;
     }
 
     void StopJump()
